@@ -1,0 +1,132 @@
+# steps
+
+
+Topic : create optimized multistaging dockerfile and build onlinebookstore and deploy on tomcat?
+
+steps:
+create server (AMI: ubuntu, instance type: t2.micro, allow all traffic in sg)
+take ssh 
+sudo -i 
+Install docker:
+
+# Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update 
+apt install docker.io -y
+
+create directory:
+mkdir multistaging
+cd multistaging
+vim dockerfile :
+
+FROM maven:3.8.4-openjdk-11 as build  
+WORKDIR /app
+RUN git clone https://github.com/shashirajraja/onlinebookstore.git
+WORKDIR /app/onlinebookstore
+RUN mvn clean package
+
+FROM tomcat:9
+COPY --from=build /app/onlinebookstore/target/*.war /usr/local/tomcat/webapps/
+EXPOSE 8080
+CMD ["catalina.sh","run"]
+
+
+docker build -t onlinestore:v1 .
+
+docker images
+docker run -d --name onlinebookstore -p 8080:8080 onlinestore:v1
+
+docker ps
+
+now, goto ec2 instance and copy public ip 
+paste in the browser as <public ip:8080/onlinebookstore>
+
+Hence, you will see the onlinebookstore website on the browser. 
+
+
+
+-----------------Explaination---------------------
+
+1. FROM maven:3.8.4-openjdk-11 as build:
+
+-- Sets up the base image for the build stage, which includes Maven and OpenJDK 11.
+-- Sets the working directory to /app.
+-- Clones the onlinebookstore application repository from GitHub into the /app directory.
+-- Changes the working directory to /app/onlinebookstore.
+-- Executes mvn clean package to compile and package the application using Maven.
+
+2. FROM tomcat:9:
+
+-- Initiates a new stage using the Tomcat 9 base image.
+-- Copies the built WAR file from /app/onlinebookstore/target/*.war to the Tomcat webapps directory at /usr/local/tomcat/webapps/.
+-- Exposes port 8080 to allow incoming connections to the Tomcat server.
+-- then we Specify the command ["catalina.sh","run"] to start the Tomcat server and deploy the application.
+-- hence, The first stage (maven:3.8.4-openjdk-11) is responsible for building the Java web application using Maven. The resulting WAR file is then copied to the second stage (tomcat:9), which hosts the application using the Tomcat server.
+
+<public ip>:8080/onlinebookstore/
+
+
+
+
+
+
+
+
+ 
+
+----------History-------------
+
+
+
+ubuntu@ip-172-31-29-174:~$ sudo su
+
+root@ip-172-31-29-174:/home/ubuntu# mkdir multistage
+
+root@ip-172-31-29-174:/home/ubuntu# cd multistage
+
+root@ip-172-31-29-174:/home/ubuntu/multistage# vim dockerfile
+
+root@ip-172-31-21-76:/home/ubuntu/multistage# docker build -t onlinestore:v1 .
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  2.048kB
+Step 1/9 : FROM maven:3.8.4-openjdk-11 as build
+ ---> 6b42b260678c
+Step 2/9 : WORKDIR /app
+ ---> Using cache
+ ---> 9704c6170b76
+Step 3/9 : RUN git clone https://github.com/shashirajraja/onlinebookstore.git
+ ---> Using cache
+ ---> 648442f87438
+Step 4/9 : WORKDIR /app/onlinebookstore
+ ---> Using cache
+ ---> 99b5a4fdf282
+Step 5/9 : RUN mvn clean package
+ ---> Using cache
+ ---> e6fd632ce3a0
+Step 6/9 : FROM tomcat:9
+9: Pulling from library/tomcat
+cbe3537751ce: Pull complete
+6cd63fc495d1: Pull complete
+fa6924fdd5c5: Pull complete
+be39ca79f5d2: Pull complete
+c878de00ef57: Pull complete
+9c09f0bf59a3: Pull complete
+0283c48d4b7d: Pull complete
+f7a4db4e6244: Pull complete
+Digest: sha256:20bff71f808cebd4d739573301265ddbefa9bbf2fbdd376339c0413c4c394847
+Status: Downloaded newer image for tomcat:9
+ ---> e410a557a9a9
+Step 7/9 : COPY --from=build /app/onlinebookstore/target/*.war /usr/
